@@ -82,6 +82,20 @@ exports.tests = {
     })
   },
 
+  env_with_overridden_url : function() {
+    var html = "<html><body><p>hello world!</p></body></html>";
+    jsdom.env({
+      html : html,
+      url  : 'http://www.example.com/',
+      done : function(errors, window) {
+        assertNull("error should be null", errors);
+        assertEquals("location can be overriden by config.url",
+                     "http://www.example.com/",
+                     window.location.href);
+      }
+    })
+  },
+
   env_with_non_existant_script : function() {
     var html = "<html><body><p>hello world!</p></body></html>";
     jsdom.env({
@@ -118,7 +132,9 @@ exports.tests = {
       done    : function(errors, window) {
         server.close();
         assertNull("error should not be null", errors);
-        assertNotNull("window should be valid", window.location);
+        assertEquals("location should be html url by default",
+                     "http://127.0.0.1:64000/html",
+                     window.location.href);
         assertEquals("script should execute on our window", window.attachedHere, 123);
         assertEquals("anchor text", window.document.getElementsByTagName("a").item(0).innerHTML, 'World');
       }
@@ -172,13 +188,15 @@ exports.tests = {
   env_processArguments_object_and_callback : function() {
     var config = jsdom.env.processArguments([{
       html    : "",
-      scripts : ['path/to/some.js', 'another/path/to.js']
+      scripts : ['path/to/some.js', 'another/path/to.js'],
+      url     : 'http://www.example.com/'
     },
     function() {}
     ]);
 
     assertNotNull("has done", config.done);
     assertNotNull("has html", config.html);
+    assertNotNull('has url', config.url);
     assertEquals('has code', 2, config.scripts.length);
   },
 
@@ -198,12 +216,13 @@ exports.tests = {
     var config = jsdom.env.processArguments([
       "<html></html>",
       ['script.js'],
-      { features : [] },
+      { features : [], url: 'http://www.example.com/' },
       function() {},
     ]);
 
     assertNotNull("has done", config.done);
     assertNotNull("has html", config.html);
+    assertNotNull('has url', config.url);
     assertEquals('script length should be 1', 1, config.scripts.length);
     assertNotNull("has config.features", config.config.features);
   },
@@ -612,6 +631,22 @@ bye = bye + "bye";\
 
         assertTrue('they should all serialize the same',
             doc1 === doc2 && doc2 == doc3 && doc3 === doc4 && doc4 == doc5)
-        
+    },
+    children_should_be_available_right_after_document_creation : function() {
+      var doc = jsdom.jsdom("<html><body><div></div></body></html>");
+      assertTrue("there should be a body, and it should have a child", (doc.body.children[0] !== undefined));
+    },
+    children_should_be_available_right_after_document_creation_scripts : function() {
+      var html = "<html><body>" +
+        "<script type='text/javascript'>" +
+          "var h = document.createElement('div');" +
+          "h.innerHTML = '<div style=\"opacity:0.8\"></div>';" +
+          "window.myNode = h.childNodes[0];" +
+        "</script>" +
+      "</body></html>";
+
+      var window = jsdom.jsdom(html).createWindow();
+      assertTrue('msg', !!window.myNode.nodeType);
     }
+    
 };
